@@ -32,7 +32,25 @@ def default_compute_score(data_source, solution_str, ground_truth, extra_info=No
     Raises:
         NotImplementedError: If the reward function is not implemented for the given data source.
     """
-    if data_source == "openai/gsm8k":
+    if data_source in [
+        "test-math-aime24",
+        "test-math-aime25",
+        "train-math-numinamath1.5_olympiads",
+        "train-math-deepscaler",
+        "train-math-still3",
+        "train-math-numinamath1.5_aops_forum",
+        "train-math-numinamath1.5_cn_contest",
+        "train-math-aime19832023",
+        "train-math-numinamath1.5_inequalities",
+        "train-math-numinamath1.5_amc_aime",
+        "train-math-omnimath",
+        "train-math-numinamath1.5_olympiads_ref",
+        "train-math-numinamath1.5_number_theory"
+    ]:
+        from . import math_verify
+
+        res = math_verify.compute_score(solution_str, ground_truth)
+    elif data_source == "openai/gsm8k":
         from . import gsm8k
 
         res = gsm8k.compute_score(solution_str, ground_truth)
