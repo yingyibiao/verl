@@ -920,8 +920,12 @@ class RayPPOTrainer:
                 timing_raw = {}
                 batch: DataProto = DataProto.from_single_dict(batch_dict)
 
+<<<<<<< Updated upstream
                 batch.non_tensor_batch['uid'] = np.array([str(uuid.uuid4()) for _ in range(len(batch.batch))],
                                                          dtype=object)
+=======
+                batch.non_tensor_batch['uid'] = np.array([str(uuid.uuid4()) for _ in range(len(batch.batch))], dtype=object)
+>>>>>>> Stashed changes
                 batch = batch.repeat(repeat_times=self.config.actor_rollout_ref.rollout.n, interleave=False)
                 # pop those keys for generation
                 batch_keys_to_pop = ["input_ids", "attention_mask", "position_ids"]
