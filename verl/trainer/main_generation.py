@@ -89,6 +89,7 @@ def main_task(config):
     config_batch_size = config.data.batch_size
     num_batch = -(-total_samples // config_batch_size)
     output_lst = [[] for _ in range(config.data.n_samples)]
+    rollout_log_probs_lst = [[] for _ in range(config.data.n_samples)]
 
     for batch_idx in range(num_batch):
         print(f"[{batch_idx + 1}/{num_batch}] Start to process.")
@@ -118,22 +119,30 @@ def main_task(config):
             output = unpad_dataproto(output_padded, pad_size=pad_size)
 
             output_texts = []
+            output_log_probs = []
             for i in range(len(output)):
                 data_item = output[i]
                 prompt_length = data_item.batch["prompts"].shape[-1]
-                valid_response_length = data_item.batch["attention_mask"][prompt_length:].sum()
+                valid_response_length = int(data_item.batch["attention_mask"][prompt_length:].sum().item())
                 valid_response_ids = data_item.batch["responses"][:valid_response_length]
+                valid_log_probs = data_item.batch["rollout_log_probs"][:valid_response_length]
                 response_str = tokenizer.decode(valid_response_ids, skip_special_tokens=True)
                 output_texts.append(response_str)
+                output_log_probs.append(valid_log_probs.cpu().tolist())
 
             output_lst[n_sample].extend(output_texts)
+            rollout_log_probs_lst[n_sample].extend(output_log_probs)
 
     # convert output_lst from (n_samples, n_data) to (n_data, n_sampels)
     output_lst = np.array(output_lst, dtype=object)
     output_lst = np.transpose(output_lst, axes=(1, 0)).tolist()
 
+    rollout_log_probs_lst = np.array(rollout_log_probs_lst, dtype=object)
+    rollout_log_probs_lst = np.transpose(rollout_log_probs_lst, axes=(1, 0)).tolist()
+
     # add to the data frame
     dataset["responses"] = output_lst
+    dataset["rollout_log_probs"] = rollout_log_probs_lst
 
     # write to a new parquet
     output_dir = os.path.dirname(config.data.output_path)
