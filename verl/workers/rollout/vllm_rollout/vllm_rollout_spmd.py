@@ -273,6 +273,11 @@ class vLLMRollout(BaseRollout):
                 "temperature": self.config.val_kwargs.temperature,
                 "n": 1,  # if validate, already repeat in ray_trainer
             }
+        else:
+            # force n = 1 for train rollouts since prompts are repeated in ray_trainer
+            kwargs = {
+                "n": 1
+            }
 
         lora_requests = None
         if self.lora_kwargs:
@@ -283,6 +288,7 @@ class vLLMRollout(BaseRollout):
 
         # users can customize different sampling_params at different run
         with self.update_sampling_params(**kwargs):
+            print(f"####Generation sampling params: {self.sampling_params}")
             outputs = self.inference_engine.generate(
                 prompts=vllm_inputs,  # because we have already convert it to prompt token id
                 sampling_params=self.sampling_params,
@@ -308,14 +314,14 @@ class vLLMRollout(BaseRollout):
             rollout_log_probs = pad_2d_list_to_length(rollout_log_probs, -1, max_length=self.config.response_length).to(idx.device)
             rollout_log_probs = rollout_log_probs.to(torch.float32)
 
-            if self.sampling_params.n > 1 and do_sample:
-                idx = _repeat_interleave(idx, self.sampling_params.n)
-                attention_mask = _repeat_interleave(attention_mask, self.sampling_params.n)
-                position_ids = _repeat_interleave(position_ids, self.sampling_params.n)
-                batch_size = batch_size * self.sampling_params.n
-                # NOTE(linjunrong): for multi-turn https://github.com/volcengine/verl/pull/1037
-                if "tools_kwargs" in non_tensor_batch.keys():
-                    non_tensor_batch["tools_kwargs"] = _repeat_interleave(non_tensor_batch["tools_kwargs"], self.sampling_params.n)
+            # if self.sampling_params.n > 1 and do_sample:
+            #     idx = _repeat_interleave(idx, self.sampling_params.n)
+            #     attention_mask = _repeat_interleave(attention_mask, self.sampling_params.n)
+            #     position_ids = _repeat_interleave(position_ids, self.sampling_params.n)
+            #     batch_size = batch_size * self.sampling_params.n
+            #     # NOTE(linjunrong): for multi-turn https://github.com/volcengine/verl/pull/1037
+            #     if "tools_kwargs" in non_tensor_batch.keys():
+            #         non_tensor_batch["tools_kwargs"] = _repeat_interleave(non_tensor_batch["tools_kwargs"], self.sampling_params.n)
 
             seq = torch.cat([idx, response], dim=-1)
 
