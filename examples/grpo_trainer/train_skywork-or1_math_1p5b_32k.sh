@@ -105,7 +105,8 @@ if [ "${HOSTNAME##*-}" -eq 0 ]; then
         trainer.nnodes=$DIST_NNODES \
         trainer.save_freq=20 \
         trainer.test_freq=20 \
-        trainer.resume_from_path='/checkpoints/yibiaoy-sandbox/skywork-or1/skywork-or1-1p5b-baseline/global_step_800/'
+        trainer.resume_mode=resume_path \
+        trainer.resume_from_path='/checkpoints/yibiaoy-sandbox/skywork-or1/skywork-or1-1p5b-baseline/global_step_800' \
         trainer.total_epochs=30 2>&1 | tee /checkpoints/yibiaoy-sandbox/skywork-or1/verl_terminal_log_$EXPERIMENT_NAME.log
 else
     sleep infinity
