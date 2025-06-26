@@ -58,6 +58,7 @@ from verl.utils.metric import (
 from verl.utils.seqlen_balancing import get_seqlen_balanced_partitions, log_seqlen_unbalance
 from verl.utils.torch_functional import masked_mean
 from verl.utils.tracking import ValidationGenerationsLogger
+from verl.utils.dataset.offline_rollout_dataset import OfflineRolloutDataset
 
 WorkerType = Type[Worker]
 
@@ -285,6 +286,7 @@ class RayPPOTrainer:
         self,
         config,
         tokenizer,
+        offline_tokenizer,
         role_worker_mapping: dict[Role, WorkerType],
         resource_pool_manager: ResourcePoolManager,
         ray_worker_group_cls: RayWorkerGroup = RayWorkerGroup,
@@ -300,6 +302,7 @@ class RayPPOTrainer:
         """Initialize distributed PPO trainer with Ray backend."""
 
         self.tokenizer = tokenizer
+        self.offline_tokenizer = offline_tokenizer
         self.processor = processor
         self.config = config
         self.reward_fn = reward_fn
@@ -344,6 +347,13 @@ class RayPPOTrainer:
 
         self._validate_config()
         self._create_dataloader(train_dataset, val_dataset, collate_fn, train_sampler)
+
+        self.offline_rollout_n = self.config.data.get("offline_rollout_n", 0)
+        offline_files = self.config.data.get("offline_rollout_files", None)
+        if offline_files and self.offline_rollout_n > 0:
+            self.offline_dataset = OfflineRolloutDataset(offline_files, self.tokenizer, self.offline_tokenizer, self.config, self.processor)
+        else:
+            self.offline_dataset = None
 
     def _validate_config(self):
         config = self.config
@@ -920,7 +930,9 @@ class RayPPOTrainer:
                 timing_raw = {}
                 batch: DataProto = DataProto.from_single_dict(batch_dict)
 
-                batch.non_tensor_batch['uid'] = np.array([str(uuid.uuid4()) for _ in range(len(batch.batch))], dtype=object)
+                uids = np.array([str(uuid.uuid4()) for _ in range(len(batch.batch))], dtype=object)
+                batch_dict["uid"] = uids
+                batch.non_tensor_batch["uid"] = uids
                 batch = batch.repeat(repeat_times=self.config.actor_rollout_ref.rollout.n, interleave=False)
 
                 # pop those keys for generation
@@ -971,7 +983,13 @@ class RayPPOTrainer:
                     # # repeat to align with repeated responses in rollout
                     # batch = batch.repeat(repeat_times=self.config.actor_rollout_ref.rollout.n, interleave=True)
                     batch = batch.union(gen_batch_output)
-
+                    if self.offline_dataset is not None and self.offline_rollout_n > 0:
+                        offline_dp = self.offline_dataset.build_dataproto(
+                            batch_dict=batch_dict,
+                            n_offline=self.offline_rollout_n,
+                        )
+                        if offline_dp is not None:
+                            batch = DataProto.concat([batch, offline_dp])
                     batch.batch["response_mask"] = compute_response_mask(batch)
                     # Balance the number of valid tokens across DP ranks.
                     # NOTE: This usually changes the order of data in the `batch`,

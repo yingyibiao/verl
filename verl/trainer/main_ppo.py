@@ -74,6 +74,8 @@ class TaskRunner:
 
         trust_remote_code = config.data.get("trust_remote_code", False)
         tokenizer = hf_tokenizer(local_path, trust_remote_code=trust_remote_code)
+        offline_tokenizer = hf_tokenizer(config.data.rollout_tokenizer, trust_remote_code=trust_remote_code)
+
         # Used for multimodal LLM, could be None
         processor = hf_processor(local_path, trust_remote_code=trust_remote_code, use_fast=True)
 
@@ -161,6 +163,7 @@ class TaskRunner:
         trainer = RayPPOTrainer(
             config=config,
             tokenizer=tokenizer,
+            offline_tokenizer=offline_tokenizer,
             processor=processor,
             role_worker_mapping=role_worker_mapping,
             resource_pool_manager=resource_pool_manager,

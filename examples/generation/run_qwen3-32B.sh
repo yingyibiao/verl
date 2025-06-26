@@ -30,8 +30,8 @@ fi
 echo "Ray all worker nodes started"
 
 
-save_path=/data/yibiaoy-sandbox/skywork-or1/qwen3-32b_generation.parquet
-train_1p5b_math_file=/data/yibiaoy-sandbox/skywork-or1/train_1p5b_math.parquet
+save_path=/data/yibiaoy-sandbox/skywork-or1/qwen3-32b_generation_part2.parquet
+train_1p5b_math_file=/data/yibiaoy-sandbox/skywork-or1/train_1p5b_math_to_generate.parquet
 
 if [ "${HOSTNAME##*-}" -eq 0 ]; then
     # Command 1
@@ -43,7 +43,7 @@ if [ "${HOSTNAME##*-}" -eq 0 ]; then
         data.prompt_key=prompt \
         data.n_samples=6 \
         data.output_path=$save_path \
-        data.batch_size=8192 \
+        data.batch_size=4096 \
         model.path=$BASE_MODEL\
         +model.trust_remote_code=True \
         rollout.name=vllm \

@@ -22,6 +22,17 @@ data:
   # Validation parquet. Can be a list or a single file.
   val_files: ~/data/rlhf/gsm8k/test.parquet
 
+  # Optional parquet(s) containing offline rollout responses.
+  offline_rollout_files: null
+
+  # Number of offline responses to mix with online rollouts per prompt.
+  offline_rollout_n: 0
+
+  # Maximum length of offline responses.
+  max_offline_rollout_length: 32768
+
+  rollout_tokenizer: Qwen/Qwen3-32B
+
   # The field in the dataset where the prompt is located. Default is 'prompt'.
   prompt_key: prompt
 
