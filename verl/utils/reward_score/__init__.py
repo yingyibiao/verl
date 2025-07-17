@@ -48,8 +48,14 @@ def default_compute_score(data_source, solution_str, ground_truth, extra_info=No
         "train-math-numinamath1.5_number_theory"
     ]:
         from . import math_verify
+        res = 0
+        if isinstance(ground_truth, str):
+            ground_truth = [ground_truth]
+        for gt in ground_truth:
+            res = math_verify.compute_score(solution_str, gt)
+            if res == 1.0:
+                break
 
-        res = math_verify.compute_score(solution_str, ground_truth)
     elif data_source == "openai/gsm8k":
         from . import gsm8k
 
