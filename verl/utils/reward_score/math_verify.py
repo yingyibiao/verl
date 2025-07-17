@@ -25,8 +25,7 @@ def compute_score(model_output: str, ground_truth: str, timeout_score: float = 0
     if "</think>" in model_output:
         model_output = model_output.split("</think>")[1]
     else:
-        model_output = model_output[:-300]  # Truncate the last 300 characters
-    
+        model_output = model_output[-300:]  # Truncate the last 300 characters
     verify_func = math_metric(
         gold_extraction_target=(LatexExtractionConfig(),),
         pred_extraction_target=(ExprExtractionConfig(), LatexExtractionConfig()),
