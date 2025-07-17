@@ -30,25 +30,27 @@ fi
 echo "Ray all worker nodes started"
 
 
-save_path=/data/yibiaoy-sandbox/skywork-or1/qwen3-32b_generation_part2.parquet
-train_1p5b_math_file=/data/yibiaoy-sandbox/skywork-or1/train_1p5b_math_to_generate.parquet
+save_path=/data/yibiaoy-sandbox/skywork-or1/qwen3-32b_generation_part1.parquet
+train_1p5b_math_file=/data/yibiaoy-sandbox/skywork-or1/train_1p5b_math.parquet
+filter_path=/code/yibiaoy-sandbox/verl/outputs/evaluation/offline_generation/evaluation_counts_combined.csv
 
 if [ "${HOSTNAME##*-}" -eq 0 ]; then
     # Command 1
     echo "Executing command 1 because DIST_NODE_RANK is 0"
-    python3 -m verl.trainer.main_generation \
+    python3 -m verl.trainer.main_generation_dynamics \
         trainer.nnodes=4 \
         trainer.n_gpus_per_node=8 \
         data.path=$train_1p5b_math_file \
         data.prompt_key=prompt \
         data.n_samples=6 \
         data.output_path=$save_path \
+        data.filter_path=$filter_path \
         data.batch_size=4096 \
         model.path=$BASE_MODEL\
         +model.trust_remote_code=True \
         rollout.name=vllm \
-        rollout.temperature=0.6 \
-        rollout.top_k=20 \
+        rollout.temperature=0.9 \
+        rollout.top_k=50 \
         rollout.top_p=0.95 \
         rollout.prompt_length=2048 \
         rollout.response_length=32768 \
