@@ -928,8 +928,7 @@ class RayPPOTrainer:
             for batch_dict in self.train_dataloader:
                 metrics = {}
                 timing_raw = {}
-                batch: DataProto = DataProto.from_single_dict(batch_dict)
-
+                batch: DataProto = DataProto.from_single_dict(batch_dict, auto_padding=True)
                 uids = np.array([str(uuid.uuid4()) for _ in range(len(batch.batch))], dtype=object)
                 batch_dict["uid"] = uids
                 batch.non_tensor_batch["uid"] = uids
@@ -1015,7 +1014,8 @@ class RayPPOTrainer:
 
                     # recompute old_log_probs
                     with _timer("old_log_prob", timing_raw):
-                        old_log_prob = self.actor_rollout_wg.compute_log_prob(batch)
+                        pad_batch, pad_sz = pad_dataproto_to_divisor(batch, self.actor_rollout_wg.world_size)
+                        old_log_prob = unpad_dataproto(self.actor_rollout_wg.compute_log_prob(pad_batch), pad_sz)
                         entropys = old_log_prob.batch["entropys"]
                         response_masks = batch.batch["response_mask"]
                         loss_agg_mode = self.config.actor_rollout_ref.actor.loss_agg_mode
@@ -1053,9 +1053,11 @@ class RayPPOTrainer:
                         # compute reference log_prob
                         with _timer("ref", timing_raw):
                             if not self.ref_in_actor:
-                                ref_log_prob = self.ref_policy_wg.compute_ref_log_prob(batch)
+                                pad_batch, pad_sz = pad_dataproto_to_divisor(batch, self.ref_policy_wg.world_size)
+                                ref_log_prob = unpad_dataproto(self.ref_policy_wg.compute_ref_log_prob(pad_batch), pad_sz)
                             else:
-                                ref_log_prob = self.actor_rollout_wg.compute_ref_log_prob(batch)
+                                pad_batch, pad_sz = pad_dataproto_to_divisor(batch, self.actor_rollout_wg.world_size)
+                                ref_log_prob = unpad_dataproto(self.actor_rollout_wg.compute_ref_log_prob(pad_batch), pad_sz)
                             batch = batch.union(ref_log_prob)
 
                     # compute values
