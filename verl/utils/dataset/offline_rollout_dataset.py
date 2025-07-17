@@ -13,8 +13,7 @@ import torch
 from omegaconf import ListConfig
 from tensordict import TensorDict
 from transformers import PreTrainedTokenizer, ProcessorMixin  # type: ignore
-
-import datasets  # huggingface datasets
+import polars as pl
 
 from verl.protocol import DataProto
 from verl.utils.torch_functional import get_response_mask, pad_2d_list_to_length
@@ -24,6 +23,7 @@ from verl.utils.torch_functional import get_response_mask, pad_2d_list_to_length
 class _RawOfflineResponse:
     text: str
     log_probs: Sequence[float]
+    correctness: bool
 
 
 class OfflineRolloutDataset(torch.utils.data.Dataset):
@@ -44,16 +44,48 @@ class OfflineRolloutDataset(torch.utils.data.Dataset):
         self.config = cfg
         self.processor = processor
 
-        ds = datasets.load_dataset("parquet", data_files=data_files)["train"]
-        df = ds.select_columns(["extra_info", "responses", "rollout_log_probs"]).to_pandas()
-        df["index"] = df["extra_info"].apply(lambda x: int(x["index"]))
-        df_exploded = df.explode(["responses", "rollout_log_probs"])
-        df_exploded["offline_response"] = [
-            _RawOfflineResponse(text=txt, log_probs=lp)
-            for txt, lp in zip(df_exploded["responses"], df_exploded["rollout_log_probs"])
-        ]
-        self._idx2rows = df_exploded.groupby("index")["offline_response"].apply(list).to_dict()
-        self._indices: List[int] = sorted(self._idx2rows.keys())
+        self._build_idx2rows(data_files)
+
+    def _build_idx2rows(
+        self,
+        data_files: List[str],
+    ) -> tuple[Dict[int, List["_RawOfflineResponse"]], List[int]]:  # type: ignore
+        # 1. 仍然使用惰性 API (scan_parquet) 开始，以便 Polars 优化器发挥作用。
+        q = (
+            pl.scan_parquet(data_files)
+            .select([
+                pl.col("extra_info").struct.field("index").cast(pl.Int64).alias("index"),
+                "responses",
+                "rollout_log_probs",
+                "response_correctness"
+            ])
+            .explode(["responses", "rollout_log_probs", "response_correctness"])
+            .filter(
+                pl.col("response_correctness").fill_null(False).cast(pl.Boolean)
+            )
+            .group_by("index")
+            .agg(
+                pl.struct([
+                    pl.col("responses").alias("text"),
+                    pl.col("rollout_log_probs").alias("log_probs"),
+                    pl.col("response_correctness").alias("correctness")
+                ]).alias("offline_response")
+            )
+        )
+
+        result_df = q.collect()
+        idx2rows = {
+            index: [
+                _RawOfflineResponse(**struct)
+                for struct in responses_struct_list
+            ]
+            for index, responses_struct_list in result_df.iter_rows()
+        }
+
+        indices = list(idx2rows.keys()) # keys() 在这里已经是排序好的
+
+        self._idx2rows = idx2rows
+        self._indices = indices
 
     def __len__(self) -> int:
         return len(self._indices)
