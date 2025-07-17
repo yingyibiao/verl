@@ -127,6 +127,7 @@ def main_task(cfg):
             return_tensors="pt",
             return_dict=True,
             tokenize=True,
+            enable_thinking=True,
         )
         ids, att = inputs["input_ids"], inputs["attention_mask"]
         pos = compute_position_id_with_mask(att)
