@@ -99,7 +99,8 @@ class OfflineRolloutDataset(torch.utils.data.Dataset):
         items = self._idx2rows.get(index, [])
         # random select n_offline responses if there are more than n_offline responses
         if len(items) > n_offline:
-            items = random.sample(items, n_offline)
+            # items = random.sample(items, n_offline)
+            items = sorted(items, key=lambda r: len(r.text))[:n_offline]
         return items, len(items)
 
     def get_by_indices(self, indices: List[int], n_offline: int) -> List[_RawOfflineResponse]:
@@ -133,8 +134,8 @@ class OfflineRolloutDataset(torch.utils.data.Dataset):
         offline_response_texts = [resp.text for resp in offline_response_items]
         offline_response_tokens = [self.offline_tokenizer(offline_response_text, add_special_tokens=False)["input_ids"] for offline_response_text in offline_response_texts]
         # TODO : check the correctness the offset of the log probs 
-        offline_response_tokens = [input_ids[2:] for input_ids in offline_response_tokens]
-        offline_responses_log_probs = [resp.log_probs[2:-1] for resp in offline_response_items]
+        offline_response_tokens = [input_ids[2:] + [self.online_tokenizer.eos_token_id] for input_ids in offline_response_tokens]
+        offline_responses_log_probs = [resp.log_probs[2:] for resp in offline_response_items]
 
         response = pad_2d_list_to_length(offline_response_tokens, self.online_tokenizer.pad_token_id, max_length=self.config.data.max_response_length).to(idx.device)
         rollout_log_probs = pad_2d_list_to_length(offline_responses_log_probs, -1, max_length=self.config.data.max_response_length).to(idx.device)

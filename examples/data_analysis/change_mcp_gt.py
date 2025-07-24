@@ -317,7 +317,9 @@ def main():
 
     modified_df = create_modified_dataframe(original_df, generated_df)
     print(f"Modified DataFrame created with {len(modified_df)} rows.")
-    output_path = "/data/yibiaoy-sandbox/skywork-or1/train_1p5b_math_modified.parquet"
+    # drop the 'extracted_index' column as it is no longer needed
+    modified_df.drop(columns=['extracted_index'], inplace=True, errors='ignore')
+    output_path = "/data/yibiaoy-sandbox/skywork-or1/train_1p5b_math_modified_no_index.parquet"
     print(modified_df.loc[5, 'reward_model'])
     # modified_df.to_parquet(output_path, index=False)
 
