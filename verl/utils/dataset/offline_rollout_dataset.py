@@ -98,9 +98,16 @@ class OfflineRolloutDataset(torch.utils.data.Dataset):
         """Get raw responses by index."""
         items = self._idx2rows.get(index, [])
         # random select n_offline responses if there are more than n_offline responses
+        offline_sample_method = self.config.data.offline_sample_method
         if len(items) > n_offline:
-            # items = random.sample(items, n_offline)
-            items = sorted(items, key=lambda r: len(r.text))[:n_offline]
+            if offline_sample_method == "random":
+                items = random.sample(items, n_offline)
+            elif offline_sample_method == "shortest":
+                items = sorted(items, key=lambda r: len(self.online_tokenizer(r.text)["input_ids"]))[:n_offline]
+            elif offline_sample_method == "longest":
+                items = sorted(items, key=lambda r: len(self.online_tokenizer(r.text)["input_ids"]), reverse=True)[:n_offline]
+            else:
+                raise ValueError(f"Unknown offline sample method: {offline_sample_method}")
         return items, len(items)
 
     def get_by_indices(self, indices: List[int], n_offline: int) -> List[_RawOfflineResponse]:
