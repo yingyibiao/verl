@@ -33,6 +33,9 @@ def default_compute_score(data_source, solution_str, ground_truth, extra_info=No
         NotImplementedError: If the reward function is not implemented for the given data source.
     """
     if data_source in [
+        "knoveleng/AMC-23",
+        "HuggingFaceH4/MATH-500",
+        "knoveleng/Minerva-Math",
         "test-math-aime24",
         "test-math-aime25",
         "train-math-numinamath1.5_olympiads",

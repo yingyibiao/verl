@@ -2,12 +2,13 @@
 set -euo pipefail
 
 # ======== 配置区域 ========
-LOCAL_BASE="/checkpoints/yibiaoy-sandbox/skywork-or1/skywork-or1-1p5b-baseline-32k"
+LOCAL_BASE="/checkpoints-fsx/yibiaoy-sandbox/skywork-or1/skywork-or1-1p5b-baseline-32k"
+LOCAL_BASE="/checkpoints-fsx/yibiaoy-sandbox/skywork-or1/skywork-or1-1p5b-baseline"
 TARGET_BASE="$LOCAL_BASE/merged_hf_model"
 NUM_PARALLEL=16            # 根据机器 CPU/IO 能力调整并行数
 PYTHON_EXE=python         # 如果有多版本 Python，可指定绝对路径
 MERGER_SCRIPT="scripts/model_merger.py"
-MIN_STEP=2380             # 新增：设置需要转换的最小步骤数
+MIN_STEP=0             # 新增：设置需要转换的最小步骤数
 # =========================
 
 mkdir -p "$TARGET_BASE"

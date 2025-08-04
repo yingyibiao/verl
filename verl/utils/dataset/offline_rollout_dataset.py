@@ -141,8 +141,12 @@ class OfflineRolloutDataset(torch.utils.data.Dataset):
         offline_response_texts = [resp.text for resp in offline_response_items]
         offline_response_tokens = [self.offline_tokenizer(offline_response_text, add_special_tokens=False)["input_ids"] for offline_response_text in offline_response_texts]
         # TODO : check the correctness the offset of the log probs 
-        offline_response_tokens = [input_ids[2:] + [self.online_tokenizer.eos_token_id] for input_ids in offline_response_tokens]
-        offline_responses_log_probs = [resp.log_probs[2:] for resp in offline_response_items]
+        if "Qwen3" in self.online_tokenizer.name_or_path:
+            offline_response_tokens = [input_ids + [self.online_tokenizer.eos_token_id] for input_ids in offline_response_tokens]
+            offline_responses_log_probs = [resp.log_probs for resp in offline_response_items]
+        else:
+            offline_response_tokens = [input_ids[2:] + [self.online_tokenizer.eos_token_id] for input_ids in offline_response_tokens]
+            offline_responses_log_probs = [resp.log_probs[2:] for resp in offline_response_items]
 
         response = pad_2d_list_to_length(offline_response_tokens, self.online_tokenizer.pad_token_id, max_length=self.config.data.max_response_length).to(idx.device)
         rollout_log_probs = pad_2d_list_to_length(offline_responses_log_probs, -1, max_length=self.config.data.max_response_length).to(idx.device)
