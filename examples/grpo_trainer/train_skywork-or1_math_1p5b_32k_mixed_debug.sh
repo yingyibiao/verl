@@ -81,6 +81,7 @@ python3 -m verl.trainer.main_ppo \
     actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=2 \
     actor_rollout_ref.ref.fsdp_config.param_offload=True \
     algorithm.kl_ctrl.kl_coef=0 \
+    algorithm.sft_loss_coef=1 \
     trainer.critic_warmup=0 \
     trainer.default_hdfs_dir=null \
     trainer.default_local_dir=/checkpoints/yibiaoy-sandbox/skywork-or1/$EXPERIMENT_NAME \

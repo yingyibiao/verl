@@ -308,6 +308,9 @@ class RayPPOTrainer:
         self.reward_fn = reward_fn
         self.val_reward_fn = val_reward_fn
 
+        with open_dict(self.config.actor_rollout_ref.actor):
+            self.config.actor_rollout_ref.actor.sft_loss_coef = self.config.algorithm.get("sft_loss_coef", 0.0)
+
         self.hybrid_engine = config.actor_rollout_ref.hybrid_engine
         assert self.hybrid_engine, "Currently, only support hybrid engine"
 
@@ -929,6 +932,7 @@ class RayPPOTrainer:
                 metrics = {}
                 timing_raw = {}
                 batch: DataProto = DataProto.from_single_dict(batch_dict, auto_padding=True)
+                batch.non_tensor_batch["is_offline"] = np.zeros(len(batch.batch), dtype=np.bool_)
                 uids = np.array([str(uuid.uuid4()) for _ in range(len(batch.batch))], dtype=object)
                 batch_dict["uid"] = uids
                 batch.non_tensor_batch["uid"] = uids

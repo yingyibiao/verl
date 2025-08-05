@@ -192,6 +192,7 @@ class OfflineRolloutDataset(torch.utils.data.Dataset):
             "index": batch_dict["index"],
             "uid": batch_dict["uid"],
             "tools_kwargs": batch_dict["tools_kwargs"],
+            "is_offline": np.ones_like(batch_dict["index"], dtype=np.bool_),
         }
         repeated_non_tensor_batch = {}
 

@@ -794,6 +794,9 @@ algorithm:
 
     # Power used for weight scaling in "pow" method
     weight_pow: 2.0
+  
+  # Coefficient for SFT loss applied on offline data
+  sft_loss_coef: 0.0
 
 # config for the trainer
 trainer:

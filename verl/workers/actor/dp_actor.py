@@ -429,6 +429,17 @@ class DataParallelPPOActor(BasePPOActor):
                         metrics["actor/kl_loss"] = kl_loss.detach().item()
                         metrics["actor/kl_coef"] = self.config.kl_loss_coef
 
+                    # offline sft loss
+                    sft_coef = getattr(self.config, "sft_loss_coef", 0.0)
+                    if sft_coef > 0 and "is_offline" in data:
+                        offline_mask = data["is_offline"].bool().unsqueeze(-1)
+                        if offline_mask.any():
+                            sft_mask = response_mask * offline_mask
+                            sft_loss = agg_loss(loss_mat=-log_prob, loss_mask=sft_mask, loss_agg_mode=loss_agg_mode)
+                            policy_loss = policy_loss + sft_coef * sft_loss
+                            metrics["actor/sft_loss"] = sft_loss.detach().item()
+                            metrics["actor/sft_coef"] = sft_coef
+
                     if self.config.use_dynamic_bsz:
                         # relative to the dynamic bsz
                         loss = policy_loss * (len(data) / self.config.ppo_mini_batch_size)
