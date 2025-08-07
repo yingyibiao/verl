@@ -180,6 +180,7 @@ class OfflineRolloutDataset(torch.utils.data.Dataset):
                 "rollout_log_probs": rollout_log_probs,  # we will recompute old log prob with actor
                 "attention_mask": attention_mask,
                 "position_ids": position_ids,
+                "is_offline": torch.ones(offline_batch_size, dtype=torch.bool, device=idx.device),
             },
             batch_size=offline_batch_size,
         )
@@ -192,7 +193,6 @@ class OfflineRolloutDataset(torch.utils.data.Dataset):
             "index": batch_dict["index"],
             "uid": batch_dict["uid"],
             "tools_kwargs": batch_dict["tools_kwargs"],
-            "is_offline": np.ones_like(batch_dict["index"], dtype=np.bool_),
         }
         repeated_non_tensor_batch = {}
 

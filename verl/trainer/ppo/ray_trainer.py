@@ -932,7 +932,9 @@ class RayPPOTrainer:
                 metrics = {}
                 timing_raw = {}
                 batch: DataProto = DataProto.from_single_dict(batch_dict, auto_padding=True)
-                batch.non_tensor_batch["is_offline"] = np.zeros(len(batch.batch), dtype=np.bool_)
+                batch.batch["is_offline"] = torch.zeros(
+                    len(batch.batch), dtype=torch.bool, device=batch.batch.device
+                )
                 uids = np.array([str(uuid.uuid4()) for _ in range(len(batch.batch))], dtype=object)
                 batch_dict["uid"] = uids
                 batch.non_tensor_batch["uid"] = uids

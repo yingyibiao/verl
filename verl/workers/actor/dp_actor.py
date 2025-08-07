@@ -57,6 +57,7 @@ class DataParallelPPOActor(BasePPOActor):
         self.actor_module = actor_module
         self.actor_optimizer = actor_optimizer
 
+        self.sft_loss_coef = getattr(config, "sft_loss_coef", 0.0)
         self.use_remove_padding = self.config.get("use_remove_padding", False)
         if torch.distributed.get_rank() == 0:
             print(f"Actor use_remove_padding={self.use_remove_padding}")
@@ -338,6 +339,8 @@ class DataParallelPPOActor(BasePPOActor):
             select_keys.append("loss_mask")
         if self.config.use_kl_loss:
             select_keys.append("ref_log_prob")
+        if self.sft_loss_coef > 0:
+            select_keys.append("is_offline")
         batch = data.select(batch_keys=select_keys).batch
         has_multi_modal_inputs = "multi_modal_inputs" in data.non_tensor_batch.keys()
 
@@ -398,7 +401,7 @@ class DataParallelPPOActor(BasePPOActor):
                     if entropy_coeff != 0:
                         calculate_entropy = True
                     entropy, log_prob = self._forward_micro_batch(micro_batch=data, temperature=temperature, calculate_entropy=calculate_entropy)
-
+                    # breakpoint()
                     pg_loss, pg_clipfrac, ppo_kl, pg_clipfrac_lower = compute_policy_loss(
                         old_log_prob=old_log_prob,
                         log_prob=log_prob,
@@ -429,16 +432,22 @@ class DataParallelPPOActor(BasePPOActor):
                         metrics["actor/kl_loss"] = kl_loss.detach().item()
                         metrics["actor/kl_coef"] = self.config.kl_loss_coef
 
-                    # offline sft loss
-                    sft_coef = getattr(self.config, "sft_loss_coef", 0.0)
-                    if sft_coef > 0 and "is_offline" in data:
-                        offline_mask = data["is_offline"].bool().unsqueeze(-1)
+                    # print(data.keys())
+                    if self.sft_loss_coef > 0:
+                        if "is_offline" in data.keys():
+                            offline_mask = data["is_offline"].unsqueeze(-1)
+                        else:
+                            offline_mask = torch.zeros((responses.size(0), 1), device=responses.device, dtype=torch.bool)
+                        sft_mask = response_mask * offline_mask
                         if offline_mask.any():
-                            sft_mask = response_mask * offline_mask
                             sft_loss = agg_loss(loss_mat=-log_prob, loss_mask=sft_mask, loss_agg_mode=loss_agg_mode)
-                            policy_loss = policy_loss + sft_coef * sft_loss
-                            metrics["actor/sft_loss"] = sft_loss.detach().item()
-                            metrics["actor/sft_coef"] = sft_coef
+                        else:
+                            sft_loss = torch.zeros(1, device=responses.device, dtype=log_prob.dtype)
+                        
+                        policy_loss = policy_loss + self.sft_loss_coef * sft_loss
+
+                        metrics["actor/sft_loss"] = sft_loss.detach().item()
+                        metrics["actor/sft_loss_coef"] = self.sft_loss_coef
 
                     if self.config.use_dynamic_bsz:
                         # relative to the dynamic bsz
