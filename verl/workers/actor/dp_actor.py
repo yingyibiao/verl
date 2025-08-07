@@ -446,8 +446,11 @@ class DataParallelPPOActor(BasePPOActor):
                         
                         policy_loss = policy_loss + self.sft_loss_coef * sft_loss
 
-                        metrics["actor/sft_loss"] = sft_loss.detach().item()
-                        metrics["actor/sft_loss_coef"] = self.sft_loss_coef
+                        data_metrics = {
+                            "actor/sft_loss": sft_loss.detach().item(),
+                            "actor/sft_loss_coef": self.sft_loss_coef,
+                        }
+                        append_to_dict(metrics, data_metrics)
 
                     if self.config.use_dynamic_bsz:
                         # relative to the dynamic bsz
