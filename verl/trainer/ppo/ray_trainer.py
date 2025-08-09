@@ -1046,6 +1046,14 @@ class RayPPOTrainer:
                                 metrics.update({"actor/entropy": entropy_agg.detach().item()})
                                 old_log_probs[online_mask] = online_old_log_prob.batch["old_log_probs"]
                             batch.batch["old_log_probs"] = old_log_probs
+                            batch.meta_info["temperature"] = (
+                                online_old_log_prob.meta_info.get(
+                                    "temperature", self.config.rollout.temperature
+                                )
+                                if online_mask.any()
+                                else self.config.rollout.temperature
+                            )
+
 
                         if "rollout_log_probs" in batch.batch.keys():
                             # TODO: we may want to add diff of probs too.
