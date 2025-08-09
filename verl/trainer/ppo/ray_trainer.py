@@ -1020,16 +1020,32 @@ class RayPPOTrainer:
 
                     # recompute old_log_probs
                     with _timer("old_log_prob", timing_raw):
-                        pad_batch, pad_sz = pad_dataproto_to_divisor(batch, self.actor_rollout_wg.world_size)
-                        old_log_prob = unpad_dataproto(self.actor_rollout_wg.compute_log_prob(pad_batch), pad_sz)
-                        entropys = old_log_prob.batch["entropys"]
-                        response_masks = batch.batch["response_mask"]
-                        loss_agg_mode = self.config.actor_rollout_ref.actor.loss_agg_mode
-                        entropy_agg = agg_loss(loss_mat=entropys, loss_mask=response_masks, loss_agg_mode=loss_agg_mode)
-                        old_log_prob_metrics = {"actor/entropy": entropy_agg.detach().item()}
-                        metrics.update(old_log_prob_metrics)
-                        old_log_prob.batch.pop("entropys")
-                        batch = batch.union(old_log_prob)
+                        recompute_offline = self.config.data.get("recompute_offline_log_probs", True)
+                        offline_mask = batch.batch.get("is_offline")
+                        if offline_mask is None:
+                            offline_mask = torch.zeros(len(batch), dtype=torch.bool, device=batch.batch.device)
+                        if recompute_offline or not offline_mask.any():
+                            old_log_prob = self.actor_rollout_wg.compute_log_prob(batch)
+                            entropys = old_log_prob.batch["entropys"]
+                            response_masks = batch.batch["response_mask"]
+                            loss_agg_mode = self.config.actor_rollout_ref.actor.loss_agg_mode
+                            entropy_agg = agg_loss(loss_mat=entropys, loss_mask=response_masks, loss_agg_mode=loss_agg_mode)
+                            metrics.update({"actor/entropy": entropy_agg.detach().item()})
+                            old_log_prob.batch.pop("entropys")
+                            batch = batch.union(old_log_prob)
+                        else:
+                            online_mask = ~offline_mask
+                            old_log_probs = batch.batch["rollout_log_probs"].clone()
+                            if online_mask.any():
+                                online_batch = batch[online_mask]
+                                online_old_log_prob = self.actor_rollout_wg.compute_log_prob(online_batch)
+                                entropys = online_old_log_prob.batch["entropys"]
+                                response_masks = batch.batch["response_mask"][online_mask]
+                                loss_agg_mode = self.config.actor_rollout_ref.actor.loss_agg_mode
+                                entropy_agg = agg_loss(loss_mat=entropys, loss_mask=response_masks, loss_agg_mode=loss_agg_mode)
+                                metrics.update({"actor/entropy": entropy_agg.detach().item()})
+                                old_log_probs[online_mask] = online_old_log_prob.batch["old_log_probs"]
+                            batch.batch["old_log_probs"] = old_log_probs
 
                         if "rollout_log_probs" in batch.batch.keys():
                             # TODO: we may want to add diff of probs too.

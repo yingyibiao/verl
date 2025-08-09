@@ -24,7 +24,7 @@ echo $train_files
 echo $test_files
 
 offline_rollout_files_list='/data/yibiaoy-sandbox/skywork-or1/qwen3-32b_generation_detailed_only_hard.parquet'
-offline_rollout_n=4
+offline_rollout_n=2
 
 # Entropy Config
 ENTROPY_COEFF=0.0
@@ -32,7 +32,7 @@ ROLLOUT_BATCH_SIZE=8
 PPO_MINI_BATCH=8
 MAX_PROMPT_LENGTH=2048
 RES_LENGTH=32768
-GROUP_SIZE=4
+GROUP_SIZE=2
 N_VAL_SAMPLES=8
 
 TRAIN_TEMPERATURE=1.0
@@ -48,6 +48,7 @@ python3 -m verl.trainer.main_ppo \
     data.train_batch_size=$ROLLOUT_BATCH_SIZE \
     data.offline_rollout_files="$offline_rollout_files_list" \
     data.offline_rollout_n=$offline_rollout_n \
+    data.recompute_offline_log_probs=True \
     data.val_batch_size=512 \
     data.max_prompt_length=$MAX_PROMPT_LENGTH \
     data.max_response_length=$RES_LENGTH \

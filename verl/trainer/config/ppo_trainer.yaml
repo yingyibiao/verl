@@ -31,6 +31,10 @@ data:
   # Method to sample offline responses. Options: 'random' (default), 'shortest', 'longest'.
   offline_sample_method: random
 
+  # Whether to recompute log probabilities for offline rollouts.
+  # If False, use stored rollout_log_probs directly.
+  recompute_offline_log_probs: True
+
   # Maximum length of offline responses.
   max_offline_rollout_length: 32768
 
