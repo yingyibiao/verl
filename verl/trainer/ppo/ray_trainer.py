@@ -1048,10 +1048,10 @@ class RayPPOTrainer:
                             batch.batch["old_log_probs"] = old_log_probs
                             batch.meta_info["temperature"] = (
                                 online_old_log_prob.meta_info.get(
-                                    "temperature", self.config.rollout.temperature
+                                    "temperature", self.config.actor_rollout_ref.rollout.temperature
                                 )
                                 if online_mask.any()
-                                else self.config.rollout.temperature
+                                else self.config.actor_rollout_ref.rollout.temperature
                             )
 
 
