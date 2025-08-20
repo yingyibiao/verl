@@ -339,7 +339,7 @@ class DataParallelPPOActor(BasePPOActor):
             select_keys.append("loss_mask")
         if self.config.use_kl_loss:
             select_keys.append("ref_log_prob")
-        if self.sft_loss_coef > 0:
+        if self.sft_loss_coef > 0 or self.config.get("force_offline_ratio_to_one", False):
             select_keys.append("is_offline")
         batch = data.select(batch_keys=select_keys).batch
         has_multi_modal_inputs = "multi_modal_inputs" in data.non_tensor_batch.keys()
@@ -401,7 +401,8 @@ class DataParallelPPOActor(BasePPOActor):
                     if entropy_coeff != 0:
                         calculate_entropy = True
                     entropy, log_prob = self._forward_micro_batch(micro_batch=data, temperature=temperature, calculate_entropy=calculate_entropy)
-                    # breakpoint()
+                    offline_mask = data["is_offline"].unsqueeze(-1) if self.config.get("force_offline_ratio_to_one", False) else None
+                    max_scale_offline = self.config.get("max_scale_offline", 1.0)
                     pg_loss, pg_clipfrac, ppo_kl, pg_clipfrac_lower = compute_policy_loss(
                         old_log_prob=old_log_prob,
                         log_prob=log_prob,
@@ -412,6 +413,8 @@ class DataParallelPPOActor(BasePPOActor):
                         cliprange_high=clip_ratio_high,
                         clip_ratio_c=clip_ratio_c,
                         loss_agg_mode=loss_agg_mode,
+                        offline_mask=offline_mask,
+                        max_scale_offline=max_scale_offline,
                     )
 
                     if entropy_coeff != 0:

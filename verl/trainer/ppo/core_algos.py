@@ -531,6 +531,8 @@ def compute_policy_loss(
     cliprange_high=None,
     clip_ratio_c=3.0,
     loss_agg_mode: str = "token-mean",
+    offline_mask=None,
+    max_scale_offline=1.0
 ):
     """
     Compute the clipped policy objective and related metrics for PPO.
@@ -559,6 +561,11 @@ def compute_policy_loss(
             Defaults to 3.0.
         loss_agg_mode (str, optional):
             Aggregation mode for `agg_loss`. Defaults to "token-mean".
+        offline_mask (torch.Tensor, optional):
+            Boolean mask indicating which sequences are offline data. If provided,
+            ratios for offline tokens are first clipped by `1 + cliprange_high`
+            and then forced to `1` while preserving gradients.
+            Shape should be (batch_size,) or (batch_size, 1).
     """
     assert clip_ratio_c > 1.0, "The lower bound of the clip_ratio_c for dual-clip PPO should be greater than 1.0," + f" but get the value: {clip_ratio_c}."
 
@@ -567,6 +574,50 @@ def compute_policy_loss(
     negative_approx_kl = torch.clamp(negative_approx_kl, min=-20.0, max=20.0)
     ratio = torch.exp(negative_approx_kl)
     ppo_kl = verl_F.masked_mean(-negative_approx_kl, response_mask)
+
+    hi_eps = cliprange_high if cliprange_high is not None else cliprange
+    lo_eps = cliprange_low  if cliprange_low  is not None else cliprange
+    use_hi = hi_eps is not None
+    use_lo = lo_eps is not None
+
+    if use_hi:
+        high_bound = 1.0 + float(hi_eps)
+        not_clipped_pos = (ratio < high_bound)
+    else:
+        # 未提供上界 ε：不做“未被裁剪”的额外限制
+        not_clipped_pos = torch.ones_like(ratio, dtype=torch.bool)
+
+    # s 的理论上限：当提供 lo_eps 时，用 1/(1-ε)；否则为 +inf
+    if use_lo:
+        assert 0.0 <= float(lo_eps) < 1.0, "cliprange_low must be in [0,1)."
+        # 避免 lo_eps>=1 的非法配置
+        denom = max(1e-12, 1.0 - float(lo_eps))
+        s_cap_theory = 1.0 / denom
+    else:
+        s_cap_theory = float("inf")
+    s_cap_final = min(max_scale_offline, s_cap_theory) if s_cap_theory != float("inf") else max_scale_offline
+
+    # ---- Offline：仅在 (offline & 有效token) 上考虑放大 ----
+    if offline_mask is not None:
+        m = offline_mask
+        if m.dtype != torch.bool:
+            m = m.bool()
+        if m.dim() == 1:
+            m = m.unsqueeze(-1)
+        if m.shape != response_mask.shape:
+            m = m.expand_as(response_mask)
+        m = m & response_mask.bool()
+
+        if m.any():
+            # 只针对 “A>0 且 r<1 且 未触发上界剪裁” 的 token 放大
+            to_bump = m & (advantages > 0) & (ratio < 1.0) & not_clipped_pos
+            if to_bump.any():
+                eps = 1e-12
+                # s ≈ 1/r，直接用 1/(1-ε) 与 max_scale_offline 封顶；detach 保证 s 为常数系数
+                s = (1.0 / (ratio + eps)).clamp(max=s_cap_final).detach()
+                # 构造“前向=1、反向=s * ∂ratio/∂θ”的替换量
+                ratio_scaled = 1.0 + s * (ratio - ratio.detach())
+                ratio = torch.where(to_bump, ratio_scaled, ratio)
 
     pg_losses1 = -advantages * ratio
     if cliprange_low is None:

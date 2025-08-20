@@ -197,7 +197,12 @@ actor_rollout_ref:
     
     # Constant C in Dual-clip PPO; clips when advantage < -C
     clip_ratio_c: 3.0
-    
+
+    # Whether to force offline tokens' ratios to 1 during PPO updates
+    force_offline_ratio_to_one: False
+
+    max_scale_offline: 2.0
+
     # Loss aggregation mode: "token-mean", "seq-mean-token-sum", or "seq-mean-token-mean"
     loss_agg_mode: token-mean
     
