@@ -9,7 +9,6 @@ conda activate verl
 export HF_HOME="/checkpoints/yibiaoy-sandbox/HF"
 export HF_HUB_OFFLINE=1
 
-# BASE_DIR="/checkpoints/yibiaoy-sandbox/skywork-or1/skywork-or1-1p5b-baseline-32k/merged_hf_model"
 BASE_DIR="/checkpoints/yibiaoy-sandbox/skywork-or1/skywork-or1-1p5b-32k-0-steps-mixed-gt2-no-kl-log-p-clip-0.2-amplify-4/merged_hf_model"
 OUT_DIR="./outputs/evaluation/skywork-or1-1p5b-32k-0-steps-mixed-gt2-no-kl-log-p-clip-0.2-amplify-4"
 LOG_DIR="./logs/skywork-or1-1p5b-32k-0-steps-mixed-gt2-no-kl-log-p-clip-0.2-amplify-4"
